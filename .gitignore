@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Frontend
+node_modules/
+dist/
+
+# Uploaded lecture PDFs
+uploads/
+
+# Logs and OS junk
+*.log
+*:Zone.Identifier
+.DS_Store
