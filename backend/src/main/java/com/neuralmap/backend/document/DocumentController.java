@@ -1,6 +1,11 @@
 package com.neuralmap.backend.document;
 
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,17 +17,23 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/documents")
 public class DocumentController {
 
-    // Step 2: only receive the file and report its name and size.
-    // Validation, storage and text extraction come in the next steps.
     private final DocumentService docService;
+   
     public DocumentController(DocumentService docService) {
         this.docService = docService;
+        
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UploadResponse upload(@RequestParam("file") MultipartFile file){
-        docService.validate(file);
-       return new UploadResponse(file.getOriginalFilename(), file.getSize());
+        Document doc = docService.upload(file);
+       return new UploadResponse(doc.id(), doc.fileName(), doc.sizeBytes(), doc.pages().size());
     }
+
+    @GetMapping("/{id}/pages")
+    public List<PageText> pages(@PathVariable UUID id){
+        return docService.get(id).pages();
+    }
+
 }
