@@ -6,6 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,7 +20,7 @@ public class DocumentService {
     private final FileStorageService fileService;
     private final TextExtractionService extractionService;
     private final DocumentStore docStore;
-
+    private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
     public DocumentService(FileStorageService fileService, TextExtractionService extractionService, DocumentStore docStore){
         this.fileService = fileService;
         this.extractionService = extractionService;
@@ -59,5 +63,24 @@ public class DocumentService {
     public Document get(UUID id){
         Document doc = docStore.find(id).orElseThrow(()-> new DocumentNotFoundException("The Document cannot be found in the storage"));
         return doc;
+    }
+    
+    @EventListener(ApplicationReadyEvent.class)
+    public void loadIDs(){
+        try {
+            List<UUID> ids = fileService.idList();
+            for( UUID id : ids){
+            try {
+            List<PageText> list = extractionService.extract(id);
+            Document doc = new Document(id, id+".pdf", 0, list);
+            docStore.save(doc);
+            } catch( RuntimeException e){
+                log.warn("Could not load document {}: {}", id, e.getMessage());
+            }
+        }
+        } catch (RuntimeException e){
+            log.warn("Could not read the upload folder: {}", e);
+        }
+        
     }
 }
