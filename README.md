@@ -25,13 +25,17 @@ Planned features
 
 Tech Stack
 
-Layer| Technology
-Backend| Java, Spring Boot
-Frontend| React, TypeScript, Vite
-AI / LLM| Ollama
-PDF Processing| Apache PDFBox
-Graph Visualization| React Flow
-Database| Planned
+Backend: Java, Spring Boot
+
+Frontend: React, TypeScript, Vite
+
+AI / LLM: Ollama
+
+PDF Processing: Apache PDFBox
+
+Graph Visualization: React Flow
+
+Database: Planned
 
 The stack and implementation details may evolve during development.
 
