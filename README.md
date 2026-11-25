@@ -55,7 +55,7 @@ NeuralMap follows a client-server architecture:
                   ┌──────────────────────┐
                   │   Spring Boot API    │
                   │                      │
-                  │  Document Processing│
+                  │  Document Processing │
                   │  Graph Generation    │
                   │  Data Validation     │
                   └──────────┬───────────┘
@@ -67,7 +67,7 @@ NeuralMap follows a client-server architecture:
           │  PDFBox      │      │  Local LLM     │
           │              │      │                │
           │ Text         │      │ Concept &      │
-          │ Extraction   │      │ Relationship  │
+          │ Extraction   │      │ Relationship   │
           │              │      │ Extraction     │
           └──────────────┘      └────────────────┘
 
@@ -122,7 +122,7 @@ Roadmap
 
 - [x] Initial Spring Boot backend
 - [x] Initial PDF reading and text extraction
-- [ ] Ollama integration
+- [x] Ollama integration
 - [ ] AI-powered concept extraction
 - [ ] Relationship extraction and validation
 - [ ] React + TypeScript frontend
