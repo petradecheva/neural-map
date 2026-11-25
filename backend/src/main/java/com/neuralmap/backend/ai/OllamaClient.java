@@ -14,11 +14,13 @@ import org.springframework.web.client.RestClientException;
 public class OllamaClient implements AiClient {
     private final RestClient restClient;
     private final String model;
+    private final int contextSize;
     public OllamaClient(@Value("${app.ollama.base-url}") String baseUrl, 
                         @Value("${app.ollama.model}") String model, 
-                        @Value("${app.ollama.timeout-seconds}") int timeoutSeconds){
+                        @Value("${app.ollama.timeout-seconds}") int timeoutSeconds,
+                        @Value("${app.ollama.context-size}") int contextSize){
         this.model = model;
-
+        this.contextSize = contextSize;                    
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory();
         factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
 
@@ -37,7 +39,8 @@ public class OllamaClient implements AiClient {
                                 "stream", false,
                                 "think", false,
                                 "messages", List.of(Map.of("role", "user", "content", prompt)),
-                                "format", schema
+                                "format", schema,
+                                "options", Map.of("num_ctx", contextSize)
                                 );
         try {
             Map<?, ?> response = restClient.post()

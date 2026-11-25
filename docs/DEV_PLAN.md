@@ -11,10 +11,12 @@ Last updated: 2026-11-25
 - Tests for extraction, document service and controller
 - AI client: `AiClient` interface + `OllamaClient` (RestClient, JSON schema output), 503 when the model is unavailable
 
+- Chunking: `ChunkingService` merges pages into chunks of up to 6000 chars (`TextChunk(startPage, endPage, text)`), skips low-text pages
+- Ollama context window set to 8192 tokens (`app.ollama.context-size`)
+- Speed test (`ConceptSpeedCheck`, manual): ~70-120 s per chunk on CPU. 35-page summary: 9 chunks, ~15 min for concepts. 41-slide deck: 5 chunks, ~9 min. Time depends mostly on the number of calls and the answer length.
+
 ## Next, in order
-1. **Chunking**: `ChunkingService` splits page text into small chunks (max 1500 chars), keeps the page number, skips low-text pages.
-2. **Speed test**: run one concept prompt on one real chunk from a real lecture PDF and time it. Decide chunk size, model and demo PDF size from the result.
-3. **Concept extraction**: prompt + JSON schema per chunk; validate output (required fields, no empty definitions), check that the evidence quote really appears in the chunk, merge duplicate concepts.
+3. **Concept extraction**: prompt + JSON schema per chunk (category `enum`, ~8 concepts max); validate output (required fields, no empty definitions); check that the evidence quote really appears in the text (ignore case and extra spaces, reject quotes with "...") and use it to find the page; merge duplicate concepts (case-insensitive names).
 4. **Background processing**: run AI work in the background, document status (`PROCESSING`, `DONE`, `FAILED`) with an endpoint to poll it, save results as a JSON file next to the PDF.
 5. **Thin frontend slice**: React + Vite + React Flow; upload a PDF and show the concepts as nodes.
 6. **Relationships**: second AI pass, validate types and concept references, show as edges.

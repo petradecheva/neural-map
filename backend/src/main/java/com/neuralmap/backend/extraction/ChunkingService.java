@@ -9,15 +9,16 @@ import com.neuralmap.backend.document.PageText;
 
 @Service
 public class ChunkingService{
-    private static final int MAX_CHARS = 1500;
+    static final int MAX_CHARS = 6000;
 
     public List<TextChunk> chunk(List<PageText> pages){
         
         List<TextChunk> chunks = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int startPage = 0;
+        int endPage = 0;
         for(PageText page : pages){
             if(page.lowText()) continue;
-
-            StringBuilder current = new StringBuilder();
             for(String paragraph : page.text().split("\\n\\s*\\n")) {
                 String p = paragraph.strip();
                 if(p.isEmpty()){
@@ -25,31 +26,34 @@ public class ChunkingService{
                 }
 
                 if(p.length() > MAX_CHARS) {
-                    flush(current, page.pageNumber(), chunks);
+                    flush(current, startPage, endPage, chunks);
                     for(String piece : cut(p)){
-                        chunks.add(new TextChunk(page.pageNumber(), piece));
+                        chunks.add(new TextChunk(page.pageNumber(), page.pageNumber(), piece));
                     }
                     continue;
                 }
 
                 if(current.length() + p.length() + 2 > MAX_CHARS) {
-                    flush(current, page.pageNumber(), chunks);
+                    flush(current, startPage, endPage, chunks);
                 }
 
-                if(current.length()>0){
+                if(current.length() == 0){
+                    startPage = page.pageNumber();
+                } else {
                     current.append("\n\n");
                 }
                 current.append(p);
+                endPage = page.pageNumber();
             }
-            
-            flush(current, page.pageNumber(), chunks);
+
         }
+        flush(current, startPage, endPage, chunks);
         return chunks;
     }
 
-    private void flush(StringBuilder current, int pageNumber, List<TextChunk> chunks) {
+    private void flush(StringBuilder current, int startPage, int endPage, List<TextChunk> chunks) {
         if(current.length() > 0){
-            chunks.add(new TextChunk(pageNumber, current.toString()));
+            chunks.add(new TextChunk(startPage, endPage, current.toString()));
             current.setLength(0);
         }
     }

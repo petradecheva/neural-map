@@ -1,6 +1,7 @@
 package com.neuralmap.backend.extraction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -13,8 +14,7 @@ import com.neuralmap.backend.document.PageText;
 
 class ChunkingServiceTest {
 
-    // Same value as ChunkingService.MAX_CHARS (that one is private).
-    private static final int MAX_CHARS = 1500;
+    private static final int MAX_CHARS = ChunkingService.MAX_CHARS;
 
     private final ChunkingService service = new ChunkingService();
 
@@ -22,11 +22,11 @@ class ChunkingServiceTest {
         return new PageText(number, text, false);
     }
 
-    // n paragraphs of 400 chars each ("aaa...", "bbb...", ...), separated by blank lines
-    private static String paragraphs(int n) {
+    // n paragraphs of `size` chars each ("aaa...", "bbb...", ...), separated by blank lines
+    private static String paragraphs(int n, int size) {
         List<String> list = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            list.add(String.valueOf((char) ('a' + i)).repeat(400));
+            list.add(String.valueOf((char) ('a' + i)).repeat(size));
         }
         return String.join("\n\n", list);
     }
@@ -36,18 +36,9 @@ class ChunkingServiceTest {
         List<TextChunk> chunks = service.chunk(List.of(page(1, "Cells are the basic unit of life.")));
 
         assertEquals(1, chunks.size());
-        assertEquals(1, chunks.get(0).pageNumber());
+        assertEquals(1, chunks.get(0).startPage());
+        assertEquals(1, chunks.get(0).endPage());
         assertEquals("Cells are the basic unit of life.", chunks.get(0).text());
-    }
-
-    @Test
-    void lowTextPagesAreSkipped() {
-        List<TextChunk> chunks = service.chunk(List.of(
-                new PageText(1, "Hi", true),
-                page(2, "This page has enough readable text.")));
-
-        assertEquals(1, chunks.size());
-        assertEquals(2, chunks.get(0).pageNumber());
     }
 
     @Test
@@ -57,37 +48,69 @@ class ChunkingServiceTest {
     }
 
     @Test
+    void shortPagesAreMergedIntoOneChunk() {
+        // like presentation slides: little text per page
+        List<TextChunk> chunks = service.chunk(List.of(
+                page(1, "Slide one about requirements."),
+                page(2, "Slide two about user stories."),
+                page(3, "Slide three about testing.")));
+
+        assertEquals(1, chunks.size());
+        assertEquals(1, chunks.get(0).startPage());
+        assertEquals(3, chunks.get(0).endPage());
+        assertEquals("Slide one about requirements.\n\nSlide two about user stories.\n\nSlide three about testing.",
+                chunks.get(0).text());
+    }
+
+    @Test
+    void lowTextPagesAreSkippedButNeighboursStillMerge() {
+        List<TextChunk> chunks = service.chunk(List.of(
+                page(1, "First page with readable text."),
+                new PageText(2, "Logo", true),
+                page(3, "Third page with readable text.")));
+
+        assertEquals(1, chunks.size());
+        assertEquals(1, chunks.get(0).startPage());
+        assertEquals(3, chunks.get(0).endPage());
+        assertFalse(chunks.get(0).text().contains("Logo"));
+    }
+
+    @Test
+    void newChunkStartsWhenTheNextPageDoesNotFit() {
+        // each page is a third of the limit: pages 1 and 2 fit together, page 3 does not
+        String third = "x".repeat(MAX_CHARS / 3);
+
+        List<TextChunk> chunks = service.chunk(List.of(page(1, third), page(2, third), page(3, third)));
+
+        assertEquals(2, chunks.size());
+        assertEquals(1, chunks.get(0).startPage());
+        assertEquals(2, chunks.get(0).endPage());
+        assertEquals(3, chunks.get(1).startPage());
+        assertEquals(3, chunks.get(1).endPage());
+    }
+
+    @Test
     void paragraphsAreGroupedUntilTheLimit() {
-        // 3 paragraphs fit (400+2+400+2+400 = 1204), the 4th would go over 1500
-        String text = paragraphs(5);
+        // paragraphs of a quarter of the limit: 3 fit in one chunk (3 * size + 4), the 4th does not
+        String text = paragraphs(5, MAX_CHARS / 4);
 
         List<TextChunk> chunks = service.chunk(List.of(page(3, text)));
 
         assertEquals(2, chunks.size());
         for (TextChunk chunk : chunks) {
             assertTrue(chunk.text().length() <= MAX_CHARS);
-            assertEquals(3, chunk.pageNumber());
+            assertEquals(3, chunk.startPage());
+            assertEquals(3, chunk.endPage());
         }
         // nothing lost and the order is kept
         assertEquals(text, chunks.get(0).text() + "\n\n" + chunks.get(1).text());
     }
 
     @Test
-    void chunksNeverMixPages() {
-        List<TextChunk> chunks = service.chunk(List.of(
-                page(1, "First page text, quite short."),
-                page(2, "Second page text, also short.")));
-
-        assertEquals(2, chunks.size());
-        assertEquals(1, chunks.get(0).pageNumber());
-        assertEquals(2, chunks.get(1).pageNumber());
-    }
-
-    @Test
     void longParagraphIsCutAtSpacesWithoutLosingWords() {
-        // one paragraph of about 4000 chars with no blank lines, like many PDFs
+        // one paragraph of about 2.5 * MAX_CHARS with no blank lines, like many PDFs
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; sb.length() < 4000; i++) {
+        for (int i = 0; sb.length() < MAX_CHARS * 2 + MAX_CHARS / 2; i++) {
             sb.append("word").append(i).append(' ');
         }
         String text = sb.toString().strip();
@@ -98,6 +121,7 @@ class ChunkingServiceTest {
         List<String> wordsInChunks = new ArrayList<>();
         for (TextChunk chunk : chunks) {
             assertTrue(chunk.text().length() <= MAX_CHARS);
+            assertEquals(1, chunk.startPage());
             wordsInChunks.addAll(Arrays.asList(chunk.text().split(" ")));
         }
         // every word is still there, whole and in order (this catches a lost last piece)
@@ -106,24 +130,30 @@ class ChunkingServiceTest {
 
     @Test
     void textWithoutSpacesIsCutAtTheLimit() {
-        String text = "x".repeat(3200);
+        String text = "x".repeat(MAX_CHARS * 2 + 200);
 
         List<TextChunk> chunks = service.chunk(List.of(page(1, text)));
 
         assertEquals(3, chunks.size());
-        assertEquals(1500, chunks.get(0).text().length());
-        assertEquals(1500, chunks.get(1).text().length());
+        assertEquals(MAX_CHARS, chunks.get(0).text().length());
+        assertEquals(MAX_CHARS, chunks.get(1).text().length());
         assertEquals(200, chunks.get(2).text().length());
     }
 
     @Test
-    void shortTextBeforeALongParagraphGetsItsOwnChunk() {
-        String text = "Intro paragraph.\n\n" + "y".repeat(2000) + "\n\nOutro paragraph.";
-
-        List<TextChunk> chunks = service.chunk(List.of(page(1, text)));
+    void longParagraphOnALaterPageKeepsEarlierTextSeparate() {
+        // page 1 is short, page 2 is one huge paragraph, page 3 is short
+        List<TextChunk> chunks = service.chunk(List.of(
+                page(1, "Intro paragraph."),
+                page(2, "y".repeat(MAX_CHARS + 500)),
+                page(3, "Outro paragraph.")));
 
         assertEquals(4, chunks.size());
         assertEquals("Intro paragraph.", chunks.get(0).text());
+        assertEquals(1, chunks.get(0).endPage());
+        assertEquals(2, chunks.get(1).startPage());
+        assertEquals(2, chunks.get(2).endPage());
         assertEquals("Outro paragraph.", chunks.get(3).text());
+        assertEquals(3, chunks.get(3).startPage());
     }
 }

@@ -1,4 +1,4 @@
 package com.neuralmap.backend.extraction;
 
-public record TextChunk(int pageNumber, String text) {
+public record TextChunk(int startPage, int endPage, String text) {
 }
