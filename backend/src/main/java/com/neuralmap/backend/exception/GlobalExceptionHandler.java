@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 
+import com.neuralmap.backend.ai.AiException;
+
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -41,6 +43,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ErrorResponse> handleBadUpload(MultipartException ex) {
         return build(HttpStatus.BAD_REQUEST, "Please upload a file in the form field named 'file'.");
+    }
+
+    @ExceptionHandler(DocumentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAiException(AiException ex) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     // One place that builds every error answer, so they all have the same shape.
