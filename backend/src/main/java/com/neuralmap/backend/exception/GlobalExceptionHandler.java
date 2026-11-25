@@ -36,7 +36,7 @@ public class GlobalExceptionHandler {
     // File bigger than the limit in application.properties -> 413 Payload Too Large
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex) {
-        return build(HttpStatus.PAYLOAD_TOO_LARGE, "The file is too large. The maximum size is 20 MB.");
+        return build(HttpStatus.CONTENT_TOO_LARGE, "The file is too large. The maximum size is 20 MB.");
     }
 
     // Request was not a file upload, or the "file" field is missing -> 400 Bad Request
@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Please upload a file in the form field named 'file'.");
     }
 
-    @ExceptionHandler(DocumentNotFoundException.class)
+    @ExceptionHandler(AiException.class)
     public ResponseEntity<ErrorResponse> handleAiException(AiException ex) {
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
