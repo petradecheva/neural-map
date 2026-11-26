@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -17,7 +16,7 @@ import com.neuralmap.backend.document.PageText;
 import com.neuralmap.backend.document.TextExtractionService;
 
 /**
- * Manual speed test for step 2 of the dev plan. Needs Ollama running. Skipped in normal test runs.
+ * Manual speed test for concept extraction (uses the real ConceptPrompt). Needs Ollama running. Skipped in normal test runs.
  *
  * Run from the backend folder:
  *   RUN_SPEED_TEST=true ./gradlew test --tests '*ConceptSpeedCheck' --rerun -i
@@ -29,38 +28,8 @@ class ConceptSpeedCheck {
     @TempDir
     Path tempDir;
 
-    // First draft of the concept prompt (step 3 will refine it).
-    private static final String PROMPT = """
-            You extract the key concepts from a piece of lecture text for a study knowledge graph.
-            List at most 5 concepts: only the most important ones that the text actually explains.
-            Do not invent anything. Ignore headers, footers, page numbers and "Downloaded by" lines.
-            For each concept give:
-            - name: a short name (1 to 4 words)
-            - definition: at most 20 words, based only on the text
-            - category: one word, for example term, principle, method, process, tool, role, artifact
-            - evidence: at most 15 words copied exactly from the text
-            Keep the language of the text.
-
-            Text from pages %d to %d:
-            \"\"\"
-            %s
-            \"\"\"
-            """;
-
-    private static final Map<String, Object> SCHEMA = Map.of(
-            "type", "object",
-            "properties", Map.of("concepts", Map.of(
-                    "type", "array",
-                    "maxItems", 5,
-                    "items", Map.of(
-                            "type", "object",
-                            "properties", Map.of(
-                                    "name", Map.of("type", "string"),
-                                    "definition", Map.of("type", "string"),
-                                    "category", Map.of("type", "string"),
-                                    "evidence", Map.of("type", "string")),
-                            "required", List.of("name", "definition", "category", "evidence")))),
-            "required", List.of("concepts"));
+    // The real prompt and schema from the app.
+    private final ConceptPrompt prompt = new ConceptPrompt();
 
     @Test
     void measureConceptExtraction() throws Exception {
@@ -86,7 +55,7 @@ class ConceptSpeedCheck {
         long totalMs = 0;
         for (TextChunk chunk : samples) {
             long start = System.currentTimeMillis();
-            String json = ai.generate(PROMPT.formatted(chunk.startPage(), chunk.endPage(), chunk.text()), SCHEMA);
+            String json = ai.generate(prompt.build(chunk), prompt.schema());
             long ms = System.currentTimeMillis() - start;
             totalMs += ms;
 
